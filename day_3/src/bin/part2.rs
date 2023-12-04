@@ -1,126 +1,225 @@
 fn main() {
-    let input = include_str!("./input_day_1.txt");
-    let output = part2(input);
+    let input = include_str!("./input_day_3.txt");
+    let output = part1(input);
     println!("{}", output);
 }
+#[derive(Debug, Clone)]
+struct Coordinates {
+    start_row: usize,
+    start_col: usize,
+}
 
-fn part2(input: &str) -> String {
-    let mut results: Vec<String> = vec![];
+#[derive(Debug, Clone)]
+struct Number {
+    value: Vec<char>,
+    coordinates: Vec<Coordinates>,
+}
+#[derive(Debug)]
 
-    for line in input.lines() {
-        let trimmed_line = line.trim();
+struct Symbol {
+    coordinates: Coordinates,
+    adjacent_coordinates: Vec<Coordinates>,
+}
+fn surrounding_coordinates(
+    row: usize,
+    col: usize,
+    max_row: usize,
+    max_col: usize,
+) -> Vec<Coordinates> {
+    let mut coords = Vec::new();
 
-        if !trimmed_line.is_empty() {
-            for word in trimmed_line.split_whitespace() {
-                let mut first_non_digit_str = String::new();
-                let mut first_char_that_is_digit = None;
-                let mut last_non_digit_str = String::new();
-                let mut last_char_that_is_digit = None;
+    // Check above
+    if row > 0 {
+        coords.push(Coordinates {
+            start_row: row - 1,
+            start_col: col,
+        });
 
-                // Process from start to find the first digit or non-digit word
-                for char in word.chars() {
-                    match char.is_digit(10) {
-                        true => {
-                            first_char_that_is_digit = Some(char.to_string());
-                            break;
-                        }
-                        false => {
-                            process_char(
-                                char,
-                                &mut first_non_digit_str,
-                                &mut first_char_that_is_digit,
-                            );
-                            if first_char_that_is_digit.is_some() {
-                                break;
-                            }
-                        }
+        // Check diagonally upper-left
+        if col > 0 {
+            coords.push(Coordinates {
+                start_row: row - 1,
+                start_col: col - 1,
+            });
+        }
+
+        // Check diagonally upper-right
+        if col + 1 < max_col {
+            coords.push(Coordinates {
+                start_row: row - 1,
+                start_col: col + 1,
+            });
+        }
+    }
+
+    // Check below
+    if row + 1 < max_row {
+        coords.push(Coordinates {
+            start_row: row + 1,
+            start_col: col,
+        });
+
+        // Check diagonally lower-left
+        if col > 0 {
+            coords.push(Coordinates {
+                start_row: row + 1,
+                start_col: col - 1,
+            });
+        }
+
+        // Check diagonally lower-right
+        if col + 1 < max_col {
+            coords.push(Coordinates {
+                start_row: row + 1,
+                start_col: col + 1,
+            });
+        }
+    }
+
+    // Check left
+    if col > 0 {
+        coords.push(Coordinates {
+            start_row: row,
+            start_col: col - 1,
+        });
+    }
+
+    // Check right
+    if col + 1 < max_col {
+        coords.push(Coordinates {
+            start_row: row,
+            start_col: col + 1,
+        });
+    }
+
+    coords
+}
+
+fn find_matching_numbers(numbers: Vec<Number>, allsymbols: Vec<Symbol>) -> String {
+    let mut num_gears: Vec<Vec<usize>> = Vec::new();
+    for symbol in &allsymbols {
+        let mut touching_numbers = Vec::new();
+
+        for number in &numbers {
+            let mut is_touching = false;
+
+            for num_coord in &number.coordinates {
+                for sym_coord in &symbol.adjacent_coordinates {
+                    if num_coord.start_row == sym_coord.start_row
+                        && num_coord.start_col == sym_coord.start_col
+                    {
+                        is_touching = true;
+                        break; // No need to check other coordinates if one match is found
                     }
                 }
+            }
 
-                // Process from end to find the last digit or non-digit word
-                for char in word.chars().rev() {
-                    match char.is_digit(10) {
-                        true => {
-                            last_char_that_is_digit = Some(char.to_string());
-                            break;
-                        }
-                        false => {
-                            process_char_reverse(
-                                char,
-                                &mut last_non_digit_str,
-                                &mut last_char_that_is_digit,
-                            );
-                            if last_char_that_is_digit.is_some() {
-                                break;
-                            }
-                        }
-                    }
+            if is_touching {
+                // Convert Vec<char> to String and then try to parse it as usize
+                if let Ok(num_value) = number.value.iter().collect::<String>().parse::<usize>() {
+                    touching_numbers.push(num_value);
                 }
+            }
+        }
 
-                // Combine the results as needed
-                if let (Some(first_digit), Some(last_digit)) =
-                    (first_char_that_is_digit, last_char_that_is_digit)
-                {
-                    let combined = format!("{}{}", first_digit, last_digit);
-                    results.push(combined);
+        if touching_numbers.len() >= 2 {
+            num_gears.push(touching_numbers); // Add to num_gears if at least 2 numbers are touching the symbol
+        }
+    }
+    for number in &num_gears {
+        println!("{:?} ", number);
+    }
+    let sum: usize = num_gears
+        .iter()
+        .map(|inner_vec| inner_vec.iter().product::<usize>())
+        .sum();
+    sum.to_string()
+}
+fn part1(input: &str) -> String {
+    let lines: Vec<&str> = input.lines().collect();
+    let max_row = lines.len();
+    let mut numbers = Vec::new();
+    let mut allSymbols: Vec<Symbol> = Vec::new();
+    for (row, line) in lines.iter().enumerate() {
+        let chars: Vec<char> = line.trim().chars().collect();
+        let mut col = 0;
+        let maxCol = chars.len();
+        while col < chars.len() {
+            match chars[col] {
+                // If the character is a digit
+                c if c.is_digit(10) => {
+                    let mut number_value = Vec::new();
+                    let mut num_coords: Vec<Coordinates> = Vec::new();
+
+                    while col < chars.len() && chars[col].is_digit(10) {
+                        number_value.push(chars[col]);
+                        num_coords.push(Coordinates {
+                            start_row: row,
+                            start_col: col,
+                        });
+                        col += 1;
+                    }
+
+                    let number = Number {
+                        value: number_value,
+                        coordinates: num_coords,
+                    };
+                    numbers.push(number);
+                }
+                // If the character is a symbol (you can list specific symbols here)
+                '*' => {
+                    let adjacent_coordinates = surrounding_coordinates(row, col, max_row, maxCol);
+                    allSymbols.push(Symbol {
+                        coordinates: Coordinates {
+                            start_row: row,
+                            start_col: col,
+                        },
+                        adjacent_coordinates,
+                    });
+                    // Handle symbol logic here
+                    col += 1; // Move to the next column
+                }
+                // If the character is a dot or anything else
+                _ => {
+                    col += 1; // Move to the next column
                 }
             }
         }
     }
-    let sum: i32 = results.iter().filter_map(|s| s.parse::<i32>().ok()).sum();
-    sum.to_string()
-}
-
-fn process_char(char: char, non_digit_str: &mut String, digit_found: &mut Option<String>) {
-    non_digit_str.push(char);
-    check_for_number_word(non_digit_str, digit_found);
-}
-
-fn process_char_reverse(char: char, non_digit_str: &mut String, digit_found: &mut Option<String>) {
-    non_digit_str.insert(0, char);
-    check_for_number_word(non_digit_str, digit_found);
-}
-
-fn check_for_number_word(non_digit_str: &mut String, digit_found: &mut Option<String>) {
-    // A mapping from number words to their digit representations
-    let number_words = [
-        ("zero", "0"),
-        ("one", "1"),
-        ("two", "2"),
-        ("three", "3"),
-        ("four", "4"),
-        ("five", "5"),
-        ("six", "6"),
-        ("seven", "7"),
-        ("eight", "8"),
-        ("nine", "9"),
-    ];
-    let number_map: std::collections::HashMap<_, _> = number_words.into_iter().collect();
-
-    // Check if the non-digit string contains any of the number words
-    for (number_word, digit) in &number_map {
-        if non_digit_str.contains(number_word) {
-            *digit_found = Some(digit.to_string());
-            break;
-        }
-    }
+    // for number in &numbers {
+    //     println!(
+    //         "{:?}: {:?}",
+    //         number.value.iter().collect::<String>(),
+    //         number.coordinates
+    //     );
+    // }
+    // for sym in &allSymbols {
+    //     println!("{:?}", sym.coordinates);
+    // }
+    let f = find_matching_numbers(numbers, allSymbols);
+    println!("{}", f);
+    f.to_string()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const INPUT: &str = "two1nine
-    eightwothree
-    abcone2threexyz
-    xtwone3four
-    4nineeightseven2
-    zoneight234
-    7pqrstsixteen";
+    const INPUT: &str = "
+467..114..
+...*......
+..35..633.
+......#...
+617*......
+.....+.58.
+..592.....
+......755.
+...$.*....
+.664.598..";
 
     #[test]
     fn it_works() {
-        let result = part2(INPUT);
-        assert_eq!(result, "281");
+        let result = part1(INPUT);
+        assert_eq!(result, "467835");
     }
 }

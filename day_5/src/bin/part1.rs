@@ -158,7 +158,6 @@ fn part1(input: &str) -> String {
 
     println!("{:?}", all_mappings);
     let t = translate_seed_maps(seeds, all_mappings);
-    t
 }
 // pub fn translate(&self, source: usize) -> usize {
 //     let valid_mapping = self
